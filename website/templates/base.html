@@ -1,0 +1,79 @@
+<!doctype html>
+{% set active_tab = {'home': 'files', 'intro': 'files', 'preview': 'files', 'person': 'people', 'activity': 'people'}.get(request.endpoint, request.endpoint) %}
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}HR2026{% endblock %}</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicons/' ~ (active_tab if active_tab in tabs else 'files') ~ '.png', v='1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css', v='12') }}">
+  {% block page_styles %}{% endblock %}
+  <script src="{{ url_for('static', filename='interaction.js', v='4') }}" defer></script>
+</head>
+<body>
+  {% from "forms.html" import token, profile_form with context %}
+  <a class="skip" href="#content">跳到内容</a>
+  <header class="topbar"><div class="header-inner">
+    <a class="brand" lang="en" href="{{ url_for('home') }}">HR2026</a>
+    <nav class="navigation" aria-label="项目模块">
+      {% for key in tabs %}
+        <a href="{{url_for(key)}}" lang="en" aria-label="{{key|title}}" {% if active_tab == key %}aria-current="page"{% endif %}>
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            {% if key == 'files' %}
+              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>
+              <path d="M3 10h18"/>
+            {% elif key == 'task' %}
+              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+              <rect x="9" y="3" width="6" height="4" rx="1.25"/><path d="m8.5 14 2.25 2.25L15.5 11.5"/>
+            {% elif key == 'issues' %}
+              <path d="M20.5 11.25a6.75 6.75 0 0 1-6.75 6.75H8l-4.5 2.5V11.25A6.75 6.75 0 0 1 10.25 4.5h3.5a6.75 6.75 0 0 1 6.75 6.75Z"/>
+              <path d="M8 10h8m-8 3.5h5"/>
+            {% elif key == 'wiki' %}
+              <path d="M12 7a6 6 0 0 0-4.5-2H3v13h4.5A6 6 0 0 1 12 20a6 6 0 0 1 4.5-2H21V5h-4.5A6 6 0 0 0 12 7Zm0 0v13"/>
+            {% elif key == 'people' %}
+              <circle cx="9" cy="8" r="3"/>
+              <path d="M3 19v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1m1-13.8a3 3 0 0 1 0 5.8m2 3.2a4 4 0 0 1 3 3.8v1"/>
+            {% endif %}
+          </svg>
+          <span class="nav-label" aria-hidden="true">{{key|title}}</span>
+        </a>
+      {% endfor %}
+    </nav>
+    {% if g.user and g.user.must_change %}
+      <a href="{{url_for('password')}}" class="account-entry reminder" aria-label="首次登录，请修改密码">
+        <img class="account-portrait" src="{{default_avatar_url}}" width="36" height="36" alt="">
+        <span class="account-alert">请改密</span>
+      </a>
+    {% else %}
+      <a class="account-entry" data-open-dialog="account-dialog" href="{{url_for('person',person_id=g.user.id) if g.user else url_for('login')}}" aria-label="{{'我的账户' if g.user else '成员登录'}}" aria-haspopup="dialog">
+        <img class="account-portrait" src="{{default_avatar_url}}" width="36" height="36" alt="">
+      </a>
+    {% endif %}
+  </div></header>
+  {% if not g.user or not g.user.must_change %}<dialog class="account-dialog" id="account-dialog" aria-labelledby="account-heading">
+    <div class="section-header"><h2 id="account-heading">{{'我的账户' if g.user else '成员登录'}}</h2><form method="dialog"><button aria-label="关闭账户窗口">×</button></form></div>
+    {% if g.user %}
+      {{profile_form(g.user)}}
+      <div class="account-actions"><a class="button outline" href="{{url_for('person',person_id=g.user.id)}}">查看名片</a><a class="button outline" href="{{url_for('password')}}">修改密码</a>
+      <form method="post" action="{{url_for('logout')}}">{{token()}}<button>退出登录</button></form></div>
+    {% else %}
+      <form class="stack" method="post" action="{{url_for('login')}}">{{token()}}
+        <label>姓名<input name="username" maxlength="65" autocomplete="username" required></label>
+        <label>密码<input type="password" name="password" maxlength="256" autocomplete="current-password" required></label>
+        <button class="primary">登录</button>
+      </form>
+    {% endif %}
+  </dialog>{% endif %}
+  <main class="shell" id="content">
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      {% if category == 'profile-onboarding' and g.user %}
+        <div class="notice profile-onboarding">
+          <p role="status">{{message}}</p>
+          <a class="button outline" href="{{url_for('person',person_id=g.user.id,edit='1',_anchor='settings')}}">编辑我的名片</a>
+        </div>
+      {% else %}<div class="notice {{category}}" role="status">{{message}}</div>{% endif %}
+    {% endfor %}
+    {% block body %}{% endblock %}
+  </main>
+</body>
+</html>

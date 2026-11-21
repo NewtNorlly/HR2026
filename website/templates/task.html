@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% from "forms.html" import token, person_select with context %}
+{% block title %}Task{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{url_for('static',filename='task.css')}}">{% endblock %}
+
+{% macro task_form(group_id, group_title, record=None, parent=None) %}
+  {% set available = people if group_id is none else (people | selectattr('group_id','equalto',group_id) | list) %}
+  {% set reviewers = (people | selectattr('role','in',['editor','hr']) | list) if group_id is none else available %}
+  <form class="task-form form-grid" action="{{url_for('save_task')}}" method="post">
+    {{token()}}
+    {% if record %}<input type="hidden" name="id" value="{{record.id}}">{% endif %}
+    {% if parent %}
+      <input type="hidden" name="parent" value="{{parent.id}}">
+      <p class="wide task-form-context">{{group_title}} / {{parent.title}}</p>
+    {% elif record and record.parent_id %}
+      <label class="wide">所属纲要
+        <select name="parent" required>
+          {% for outline in all_tasks if outline.id == record.parent_id or (outline.group_id == group_id and not outline.parent_id and outline.status != 'done') %}
+            <option value="{{outline.id}}" {% if outline.id == record.parent_id %}selected{% endif %}>W{{outline.week}} · {{outline.title}}</option>
+          {% endfor %}
+        </select>
+      </label>
+    {% else %}
+      <label>周次
+        <select name="week">{% for w in range(13,19) %}<option value="{{w}}" {% if w == (record.week if record else week) %}selected{% endif %}>W{{w}}</option>{% endfor %}</select>
+      </label>
+    {% endif %}
+    <label class="wide">任务名称<input name="title" maxlength="120" required value="{{record.title if record else ''}}"></label>
+    <label>截止日期<input type="date" name="due" value="{{record.due if record else ''}}" required></label>
+    <label>执行人 {{person_select('owner',available,record.owner_id if record else None,True)}}</label>
+    <label>验收人 {{person_select('reviewer',reviewers,record.reviewer_id if record else None,True)}}</label>
+    <label>协作者 {{person_select('collaborator',people,record.collaborator_id if record else None)}}</label>
+    <label class="wide">交付与验收要求<textarea name="deliverable" maxlength="800" rows="3" required>{{record.deliverable if record else ''}}</textarea></label>
+    <div class="wide"><button class="primary">{{'保存变更' if record else ('添加细则' if parent else '添加纲要')}}</button></div>
+  </form>
+{% endmacro %}
+
+{% macro progress_form(t, options) %}
+  <form class="task-form form-grid" method="post" action="{{url_for('task_progress',task_id=t.id)}}">
+    {{token()}}
+    <label>状态<select name="status">{% for key in options %}<option value="{{key}}" {% if key==t.status %}selected{% endif %}>{{states[key]}}</option>{% endfor %}</select></label>
+    <label>交付风险<select name="risk">{% for key,text in risks.items() %}<option value="{{key}}" {% if key==t.risk %}selected{% endif %}>{{text}}</option>{% endfor %}</select></label>
+    <label>交付文件版本编号<input name="file_id" inputmode="numeric" value="{{t.file_id or ''}}"></label>
+    <label>等待回复人 {{person_select('waiting_for',people,t.waiting_for)}}</label>
+    <label>约定回复日<input type="date" name="reply_due" value="{{t.reply_due}}"></label>
+    <label class="wide">进度说明<textarea name="blocker" maxlength="800" rows="3">{{t.blocker}}</textarea></label>
+    <div class="wide"><button class="primary">保存进度</button></div>
+  </form>
+{% endmacro %}
+
+{% macro task_entry(t, group, focus) %}
+  {% set tasks = children.get(t.id, []) %}
+  {% set options = progress_options(t) %}
+  {% set waiting_label = public_identity(t.waiting_name,t.waiting_for) if t.waiting_name else None %}
+  {% set is_target = focus == t.id or (focus in by_id and by_id[focus].parent_id == t.id) %}
+  <details class="task-entry {% if t.parent_id %}is-subtask{% endif %}" id="task-{{t.id}}" {% if is_target %}open{% endif %}>
+    <summary class="task-entry-row">
+      <span class="task-entry-title"><span class="task-disclose" aria-hidden="true"></span><strong>{{t.title}}</strong></span>
+      <span class="task-entry-meta">
+        <span class="task-assignee">@{{public_identity(t.owner,t.owner_id)}}</span>
+        {% if t.due %}<span class="task-deadline">By <time datetime="{{t.due}}">{{t.due}}</time></span>{% else %}<span class="task-deadline">待定截止日</span>{% endif %}
+        <span class="task-state is-{{t.status}}">{% if t.status == 'done' %}✓ {% endif %}{{states[t.status]}}</span>
+      </span>
+    </summary>
+    <div class="task-entry-body">
+      <p class="task-deliverable">{{t.deliverable}}</p>
+      <div class="task-detail-meta">
+        <span>W{{t.week}}</span>
+        <span>验收 @{{public_identity(t.reviewer,t.reviewer_id)}}</span>
+        {% if t.collaborator %}<span>协作 @{{public_identity(t.collaborator,t.collaborator_id)}}</span>{% endif %}
+        <span class="task-risk is-{{t.risk}}">{{risks[t.risk]}}</span>
+      </div>
+      {% if t.parent_id and group.id is not none and by_id.get(t.parent_id) and by_id[t.parent_id].group_id is none %}
+        <p class="task-context">来源 <a href="#task-{{t.parent_id}}">Officer / {{by_id[t.parent_id].title}}</a></p>
+      {% endif %}
+      {% if waiting_label or t.blocker %}
+        <div class="task-waiting">
+          {% if waiting_label %}<p>等 @{{waiting_label}} {% if t.reply_due %}· <time datetime="{{t.reply_due}}">{{t.reply_due}}</time>{% endif %}</p>{% endif %}
+          {% if t.blocker %}<p>{{t.blocker}}</p>{% endif %}
+        </div>
+      {% endif %}
+      {% if visible_file(t) %}
+        <p class="task-context">{{t.file_name}} · <a href="{{url_for('files',group=t.latest_file_group_id or 0,file=t.latest_file_id)}}" aria-label="查看 {{t.file_name}} 的最新版">查看最新版</a>{% if t.file_id != t.latest_file_id %} <span class="meta">· 登记版本 {{t.file_id}}</span>{% endif %}</p>
+      {% endif %}
+      {% for issue in related.get(t.id, []) %}<p class="task-context"><a href="{{url_for('issues',issue=issue.id)}}">{{'处理结论' if issue.resolution else '关联讨论'}} · {{issue.title}}</a></p>{% endfor %}
+      {% if tasks %}
+        <div class="task-children" aria-label="细则">
+          {% for child in tasks %}{{task_entry(child,group,focus)}}{% endfor %}
+        </div>
+      {% endif %}
+      {% if options or (can_edit(group.id) and t.status != 'done') %}
+        <div class="task-entry-actions">
+          {% if options %}<details><summary>{{'重开任务' if t.status == 'done' and options == ('doing',) else '更新进度'}}</summary>{{progress_form(t,options)}}</details>{% endif %}
+          {% if can_edit(group.id) and t.status != 'done' %}
+            <details><summary>{{'编辑细则' if t.parent_id else '编辑纲要'}}</summary>{{task_form(group.id,group.title,t)}}</details>
+            {% if not t.parent_id %}<details><summary>添加细则</summary>{{task_form(group.id,group.title,parent=t)}}</details>{% endif %}
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </details>
+{% endmacro %}
+
+{% block body %}
+<div class="task-workspace">
+  <header class="task-page-header">
+    <h1>任务</h1>
+    <form method="get" class="task-week-filter">
+      <label>查看周次
+        <select name="week"><option value="" {% if week is none %}selected{% endif %}>全部周次</option>{% for w in range(13,19) %}<option value="{{w}}" {% if w==week %}selected{% endif %}>W{{w}}</option>{% endfor %}</select>
+      </label>
+      <button>筛选</button>
+    </form>
+  </header>
+  {% for group in groups %}
+    {% set entries = roots[group.id] %}
+    {% set in_focus = focus in by_id and by_id[focus].group_id == group.id %}
+    {% set group_open = loop.first or in_focus or (g.user and g.user.group_id is not none and g.user.group_id == group.id) %}
+    <details class="task-folder" {% if group_open %}open{% endif %}>
+      <summary>
+        <span class="task-folder-label"><span class="task-disclose" aria-hidden="true"></span><strong>{{group.title}}</strong><span>{{group.chapters}}</span></span>
+        <span class="task-folder-count">{{entries | length}} 项</span>
+      </summary>
+      <div class="task-folder-body">
+        {% for task in entries %}{{task_entry(task,group,focus)}}{% else %}<p class="task-empty">{{'本周暂无任务。' if week else '这个列表还没有任务。'}}</p>{% endfor %}
+        {% if can_edit(group.id) %}<details class="task-create"><summary>添加纲要</summary>{{task_form(group.id,group.title)}}</details>{% endif %}
+      </div>
+    </details>
+  {% endfor %}
+</div>
+<script src="{{url_for('static',filename='task.js')}}" defer></script>
+{% endblock %}

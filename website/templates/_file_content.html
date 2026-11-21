@@ -1,0 +1,40 @@
+{% macro pdf_frame() -%}
+  <iframe class="document-pdf" title="{{file.name}}" src="{{inline_url}}"></iframe>
+  <p class="repo-note"><a href="{{inline_url}}" target="_blank" rel="noopener">单独打开 PDF 预览</a></p>
+{%- endmacro %}
+{% macro office_error() -%}
+  <div class="repo-empty" role="status">无法生成预览。文件可能损坏、受密码保护，或采用了当前转换器不支持的格式。<a href="{{download_url}}">下载原件</a></div>
+{%- endmacro %}
+{% if image %}
+  <img class="document-image" src="{{inline_url}}" alt="{{file.name}}">
+{% elif inline %}
+  {{pdf_frame()}}
+{% elif office_status in ('pending', 'running') %}
+  <div data-office-preview="{{office_status_url}}" aria-live="polite">
+    <div class="repo-empty">正在生成预览，完成后将自动打开。<a href="{{preview_url}}">刷新进度</a></div>
+    <template data-office-ready>{{pdf_frame()}}</template>
+    <template data-office-error>{{office_error()}}</template>
+  </div>
+  <script src="{{url_for('static', filename='office-preview.js', v='2')}}" defer></script>
+{% elif office_status == 'failed' %}
+  {{office_error()}}
+{% elif preview_error %}
+  <div class="repo-empty">{{preview_error}} <a href="{{download_url}}">下载原件</a></div>
+{% elif sheets %}
+  {% set sep='&' if '?' in preview_url else '?' %}
+  <nav class="sheet-tabs" aria-label="工作表">{% for name in sheets %}<a href="{{preview_url}}{{sep}}sheet={{loop.index0}}" {% if loop.index0 == sheet %}aria-current="page"{% endif %}>{{name}}</a>{% endfor %}</nav>
+  <div class="table-scroll"><table class="spreadsheet"><tbody>
+  {% for row in rows %}<tr><th scope="row">{{start+loop.index0}}</th>{% for cell in row %}<td>{{cell}}</td>{% endfor %}</tr>{% endfor %}
+  </tbody></table></div>
+  {% if wide %}<p>预览显示前 40 列，完整工作簿可下载查看。</p>{% endif %}
+  {% if page>1 or more %}<nav class="sheet-tabs" aria-label="翻页">
+  {% if page>1 %}<a href="{{preview_url}}{{sep}}sheet={{sheet}}&page={{page-1}}">上一页</a>{% endif %}
+  <span>第 {{page}} 页</span>
+  {% if more %}<a href="{{preview_url}}{{sep}}sheet={{sheet}}&page={{page+1}}">下一页</a>{% endif %}
+  </nav>{% endif %}
+{% elif markdown_file and mode == 'render' %}
+  <article class="repo-prose">{{markdown|safe}}</article>
+{% elif file and file.preview_status == 'ready' and not text %}
+  <div class="repo-empty">此文件的预览暂不可用。<a href="{{download_url}}">下载原件</a></div>
+{% else %}<pre class="repo-source"><code>{{text}}</code></pre>{% endif %}
+{% if truncated %}<p class="repo-note">预览显示前 512 KiB，完整原件可下载查看。</p>{% endif %}

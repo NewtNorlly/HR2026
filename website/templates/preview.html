@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{file.name}} · HR2026</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicons/files.png', v='1') }}">
+  <link rel="stylesheet" href="{{url_for('static',filename='site.css',v='12')}}">
+  <link rel="stylesheet" href="{{url_for('static',filename='files.css',v='8')}}">
+</head>
+<body class="repo-standalone">
+  {% if not request.args.get('embedded') or markdown_file %}
+  <div class="repo-document-bar">
+    {% if not request.args.get('embedded') %}<a href="{{url_for('files',group=file.group_id or 0,file=file.id)}}">{{file.name}}</a>{% endif %}
+    {% if markdown_file %}
+    <nav class="repo-views" aria-label="阅读方式">
+      <a href="{{preview_url}}" {% if mode=='render' %}aria-current="page"{% endif %}>渲染</a>
+      <a href="{{preview_url}}{{'&' if '?' in preview_url else '?'}}view=source" {% if mode=='source' %}aria-current="page"{% endif %}>源码</a>
+    </nav>
+    {% endif %}
+    <a class="repo-download" href="{{download_url}}">下载</a>
+  </div>
+  {% endif %}
+  <main class="repo-preview">{% include "_file_content.html" %}</main>
+</body>
+</html>

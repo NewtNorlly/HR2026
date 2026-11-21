@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}项目变更记录{% endblock %}
+{% block body %}
+<a class="quiet" href="{{url_for('people')}}">← 返回成员</a>
+<div class="page-head"><div><h1>项目变更记录</h1><p>最近 200 条变更，如任务进度、更新文件、发起讨论。</p></div></div>
+<div class="panel">
+{% for item in records %}<div class="file-line"><span><strong>{{item.event}}</strong> · {{item.detail}}</span><span class="meta">{{item.actor}} · {{item.created_at}} UTC</span></div>{% else %}<div class="empty">暂无变更记录。</div>{% endfor %}
+</div>
+{% endblock %}

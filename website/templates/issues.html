@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% from "forms.html" import token, person_select with context %}
+{% macro author_avatar(entry, size=36) %}
+<img class="avatar issue-avatar" src="{{ member_avatar_url(entry.owner_id, entry.author_avatar) }}" width="{{ size }}" height="{{ size }}" alt="" loading="lazy">
+{% endmacro %}
+{% macro reactions(issue_id, comment_id=None, can_react=True) %}
+{% set counts = reaction_counts.get(comment_id or 0, {}) %}
+{% if g.user and can_react %}
+<form class="reaction-bar" method="post" action="{{ url_for('react_to_issue', issue_id=issue_id, comment_id=comment_id) }}" aria-label="表情回应">
+  {{ token() }}<input type="hidden" name="scope" value="{{ scope }}">
+  {% for id, (emoji, label) in reaction_types.items() if id in counts %}
+    <button class="reaction-chip" name="reaction" value="{{ id }}" type="submit" aria-pressed="{{ 'true' if counts[id].selected else 'false' }}" aria-label="{{ label }}，{{ counts[id].total }} 人">
+      <span aria-hidden="true">{{ emoji }} {{ counts[id].total }}</span>
+    </button>
+  {% endfor %}
+  <details class="reaction-picker">
+    <summary title="添加表情" aria-label="添加表情">☺ <span aria-hidden="true">+</span></summary>
+    <div class="reaction-options">
+      {% for id, (emoji, label) in reaction_types.items() %}
+        <button name="reaction" value="{{ id }}" type="submit" title="{{ label }}" aria-label="{{ label }}" aria-pressed="{{ 'true' if id in counts and counts[id].selected else 'false' }}">{{ emoji }}</button>
+      {% endfor %}
+    </div>
+  </details>
+</form>
+{% elif counts %}
+<div class="reaction-bar" aria-label="表情回应">
+  {% for id, (emoji, label) in reaction_types.items() if id in counts %}
+  <span class="reaction-chip" aria-label="{{ label }}，{{ counts[id].total }} 人">{{ emoji }} {{ counts[id].total }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+{% macro delete_confirmation(action, label, description) %}
+<details class="issue-delete">
+  <summary><span class="issue-delete-open">{{ label }}</span><span class="issue-delete-cancel">取消{{ label }}</span></summary>
+  <form class="actions" method="post" action="{{ action }}">
+    {{ token() }}<input type="hidden" name="scope" value="{{ scope }}">
+    <p>{{ description }}</p>
+    <button class="danger" type="submit">确认{{ label }}</button>
+  </form>
+</details>
+{% endmacro %}
+{% block title %}Issues{% endblock %}
+{% block body %}
+<div class="page-head issues-head">
+  <div><h1>Issues</h1><p>发起议题、跟进讨论和处理结论。</p></div>
+  {% if g.user %}
+  <details class="action-panel">
+    <summary class="button primary">发起议题</summary>
+    <form class="stack" method="post" action="{{ url_for('create_issue') }}">
+      {{ token() }}
+      <label>议题标题<input name="title" maxlength="120" required></label>
+      <label>议题内容<textarea name="body" maxlength="5000" required></textarea></label>
+      <label>指派给 {{ person_select('assignee', people) }}</label>
+      <label>提及成员 {{ person_select('mention', people) }}</label>
+      <label>关联任务<select name="task"><option value="">无</option>{% for task in tasks %}<option value="{{ task.id }}">W{{ task.week }} · {{ task.title }}</option>{% endfor %}</select></label>
+      <button class="primary">发布议题</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+<div class="file-layout issues-layout">
+  <aside class="panel directory issue-nav">
+    <nav aria-label="议题筛选">
+      {% for key, (label, description) in issue_filters.items() %}
+      <a href="{{ url_for('issues', scope=None if key=='all' else key) }}" {% if scope == key %}aria-current="page"{% endif %} aria-label="{{ label }}，{{ description }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+  </aside>
+  <section class="panel file-main issue-list" aria-label="议题列表">
+    {% if current %}
+    <article class="issue-thread">
+      <a class="quiet" href="{{ url_for('issues', scope=None if scope=='all' else scope) }}">← {{ issue_filters[scope][1] }}</a>
+      <header class="issue-thread-head">
+        <h2>{{ '议题已删除' if current.deleted else current.title }} <span class="meta">#{{ current.id }}</span></h2>
+        {% if not current.deleted %}
+        <div class="issue-byline">
+          {{ author_avatar(current) }}
+          <div class="issue-byline-info">
+            <strong>{{ public_identity(current.author, current.owner_id) }}</strong>
+            <time class="meta" datetime="{{ current.created_at|replace(' ', 'T') }}Z">{{ current.created_at[:10] }}</time>
+            <span class="tag {{ 'issue-closed' if current.resolution else 'green' }}">{{ '已处理' if current.resolution else '待处理' }}</span>
+          </div>
+        </div>
+        {% if current.assignee %}<p class="meta">由 {{ public_identity(current.assigner, current.assigned_by) }} 指派给 {{ public_identity(current.assignee, current.assignee_id) }}</p>{% endif %}
+        {% if can_manage %}
+        <details class="issue-assignment">
+          <summary>{{ '更改指派' if current.assignee_id else '指派议题' }}</summary>
+          <form class="actions" action="{{ url_for('change_issue_assignment', issue_id=current.id) }}" method="post">
+            {{ token() }}<input type="hidden" name="scope" value="{{ scope }}">
+            <label>负责人 {{ person_select('assignee', people, current.assignee_id) }}</label>
+            <button type="submit">保存指派</button>
+          </form>
+        </details>
+        {% endif %}
+        {% endif %}
+      </header>
+      {% if current.deleted %}
+      {% if comments %}<p class="meta">已有评论仍可阅读。</p>{% endif %}
+      {% else %}
+      <div class="issue-post" id="issue-body">
+        <p class="preserve">{{ current.body }}</p>
+        {% if current.mentioned %}<p class="mention">@{{ public_identity(current.mentioned, current.mention_id) }}</p>{% endif %}
+        {% if current.task_title %}<a class="evidence" href="{{ url_for('task',week=current.week) }}#task-{{ current.task_id }}">W{{ current.week }} · {{ current.task_title }}</a>{% endif %}
+        {{ reactions(current.id) }}
+        {% if g.user and g.user.id == current.owner_id %}
+        {{ delete_confirmation(url_for('delete_issue', issue_id=current.id), '删除议题', '标题、正文与处理结论将被移除，已有评论会保留。') }}
+        {% endif %}
+      </div>
+      {% if current.resolution %}<div class="callout"><strong>处理结论</strong><p class="preserve">{{ current.resolution }}</p></div>{% endif %}
+      {% endif %}
+      <div class="thread">
+        {% for comment in comments %}
+        <article class="issue-comment" id="comment-{{ comment.id }}">
+          <header class="issue-byline">
+            {{ author_avatar(comment) }}
+            <div class="issue-byline-info">
+              <strong>{{ public_identity(comment.author, comment.owner_id) }}</strong>
+              <time class="meta" datetime="{{ comment.created_at|replace(' ', 'T') }}Z">{{ comment.created_at[:10] }}</time>
+            </div>
+          </header>
+          <p class="preserve">{{ comment.body }}</p>
+          {% if comment.mentioned %}<p class="mention">@{{ public_identity(comment.mentioned, comment.mention_id) }}</p>{% endif %}
+          {{ reactions(current.id, comment.id, not current.deleted) }}
+          {% if g.user and g.user.id == comment.owner_id %}
+          {{ delete_confirmation(url_for('delete_comment', issue_id=current.id, comment_id=comment.id), '删除评论', '这条评论将从讨论中移除。') }}
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      {% if not current.deleted and g.user %}
+      <form class="stack issue-reply" action="{{ url_for('respond',issue_id=current.id) }}" method="post">
+        {{ token() }}<input type="hidden" name="scope" value="{{ scope }}">
+        <label>{{ '回复或处理结论' if can_manage else '评论' }}<textarea name="body" maxlength="5000" required></textarea></label>
+        <label>提及成员 {{ person_select('mention', people) }}</label>
+        <div class="actions"><button class="primary">发表回复</button>{% if can_manage %}<button name="resolve" value="1">保存处理结论</button>{% endif %}</div>
+      </form>
+      {% elif not current.deleted %}<p class="meta"><a href="{{ url_for('login') }}">登录</a>后可以回复和发表态度。</p>{% endif %}
+    </article>
+    {% elif not g.user and scope != 'all' %}
+    <div class="empty"><p>登录后可查看{{ issue_filters[scope][1] }}议题。</p><a href="{{ url_for('login') }}">成员登录</a></div>
+    {% else %}
+    <h2>{{ issue_filters[scope][1] }}</h2>
+    {% for item in issues %}
+    <a class="file-line link-row issue-row" href="{{ url_for('issues', issue=item.id, scope=None if scope=='all' else scope) }}">
+      {% if item.deleted %}
+      <span class="file-name"><strong>议题已删除</strong><small>#{{ item.id }} · {{ item.created_at[:10] }}</small></span>
+      {% else %}
+      <span class="issue-dot {{ 'issue-closed' if item.resolution else 'green' }}" aria-label="{{ '已处理' if item.resolution else '待处理' }}">{{ '✓' if item.resolution else '○' }}</span>
+      {{ author_avatar(item, 28) }}
+      <span class="file-name"><strong>{{ item.title }}</strong><small>#{{ item.id }} · {{ public_identity(item.author, item.owner_id) }} · {{ item.created_at[:10] }}{% if item.assignee %} · 指派给 {{ public_identity(item.assignee, item.assignee_id) }}{% endif %}</small></span>
+      {% endif %}
+      <span class="meta">{{ item.reply_count }} 条回复</span>
+    </a>
+    {% else %}
+    <p class="empty">{{ '还没有议题。' if scope=='all' else '这个列表里还没有议题。' }}</p>
+    {% endfor %}
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

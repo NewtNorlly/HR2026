@@ -1,0 +1,15 @@
+{% macro token() %}<input type="hidden" name="csrf" value="{{ csrf() }}">{% endmacro %}
+{% macro person_select(name, people, selected=None, required=False) %}
+<select name="{{name}}" {% if required %}required{% endif %}>
+  <option value="">请选择</option>
+  {% for user in people %}<option value="{{user.id}}" {% if selected == user.id %}selected{% endif %}>{{user.name}} · {{roles[user.role]}}</option>{% endfor %}
+</select>
+{% endmacro %}
+{% macro profile_form(person) %}
+<form action="{{url_for('update_profile')}}" method="post" enctype="multipart/form-data" class="stack">{{token()}}
+  <label>个人感想<textarea name="bio" maxlength="1200">{{person.bio or ''}}</textarea></label>
+  <label>更换头像<input type="file" name="avatar" accept="image/jpeg,image/png,image/webp"></label>
+  <small class="muted">头像支持 JPEG、PNG 或 WebP，最大 2 MB。{% if roster_public %}访客也能看到名片上的头像和个人感想。{% endif %}</small>
+  <button class="primary">保存资料</button>
+</form>
+{% endmacro %}

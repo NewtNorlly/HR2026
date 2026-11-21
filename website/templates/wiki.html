@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "forms.html" import token with context %}
+{% macro link_form(item=None) %}
+<form class="stack wiki-form" method="post" action="{{ url_for('save_wiki_link', link_id=item.id if item else None) }}">
+  {{ token() }}
+  <label>名称<input name="title" maxlength="120" value="{{ item.title if item else '' }}" required></label>
+  <label>网址<input type="url" name="url" maxlength="2000" value="{{ item.url if item else '' }}" required></label>
+  <a class="wiki-check quiet" target="_blank" rel="noopener noreferrer" hidden>打开链接核对 ↗</a>
+  <label>标签<input name="category" maxlength="35" value="{{ item.category if item else '' }}" placeholder="如 课程阅读、公开数据" required></label>
+  <label>重要性<select name="stars" required>
+    {% for value in range(1,6) %}<option value="{{ value }}" {% if value == (item.stars if item and item.stars else 3) %}selected{% endif %}>{{ '★' * value }} {{ value }} 星</option>{% endfor %}
+  </select></label>
+  {% if item and item.note %}<label>备注<textarea name="note" maxlength="700">{{ item.note }}</textarea></label>{% endif %}
+  <button class="primary">{{ '保存修改' if item else '添加链接' }}</button>
+</form>
+{% endmacro %}
+{% block title %}Wiki{% endblock %}
+{% block body %}
+<div class="page-head wiki-head">
+  <div><h1>Wiki</h1><p>共享参考文献、网络资讯和案例资料。正式稿仍须在引用处注明出处。</p></div>
+  {% if g.user %}<details class="action-panel">
+    <summary class="button primary">添加链接</summary>
+    {{ link_form() }}
+  </details>{% endif %}
+</div>
+{% if tags %}
+<nav class="wiki-tags actions" aria-label="按标签筛选链接">
+  <a href="{{ url_for('wiki') }}" class="tag" {% if not selected_tag %}aria-current="page"{% endif %}>全部</a>
+  {% for tag in tags %}
+  <a href="{{ url_for('wiki',tag=tag.category) }}" class="tag" {% if selected_tag==tag.category %}aria-current="page"{% endif %}>{{ tag.category }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+<div class="card-grid wiki-grid">
+{% for item in links %}
+<article id="link-{{ item.id }}" class="panel link-card wiki-card">
+  <div class="wiki-card-top actions">
+    <a href="{{ url_for('wiki',tag=item.category) }}" class="tag">{{ item.category }}</a>
+    {% if item.stars %}<span class="wiki-stars" aria-label="重要性 {{ item.stars }} / 5 星"><span aria-hidden="true">{{ '★' * item.stars }}{{ '☆' * (5-item.stars) }}</span></span>{% endif %}
+  </div>
+  <h2><a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.title }} <span aria-label="在新标签打开">↗</span></a></h2>
+  <p class="wiki-url">{{ item.url }}</p>
+  {% if item.note %}<p class="preserve">{{ item.note }}</p>{% endif %}
+  <p class="wiki-publisher">
+    <img class="avatar wiki-publisher-avatar" src="{{ member_avatar_url(item.owner_id, item.author_avatar) }}" width="24" height="24" alt="" loading="lazy">
+    <span><span class="meta">发布者</span> <a class="wiki-publisher-name" href="{{ url_for('person', person_id=item.owner_id) }}">{{ public_identity(item.author, item.owner_id) }}</a></span>
+  </p>
+  {% if g.user and item.owner_id == g.user.id %}
+  <details class="wiki-edit"><summary>编辑链接</summary>{{ link_form(item) }}</details>
+  {% endif %}
+</article>
+{% else %}
+<div class="panel empty">{{ '这个标签下还没有资料。' if selected_tag else '这里还没有共享资料。' }}</div>
+{% endfor %}
+</div>
+<script src="{{ url_for('static', filename='wiki-link.js') }}" defer></script>
+{% endblock %}

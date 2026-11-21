@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "forms.html" import token with context %}
+{% from "_member_stats.html" import member_stats %}
+{% block title %}People · HR2026{% endblock %}
+{% block body %}
+<div class="page-head">
+  <div><h1>成员名片</h1><p>{{people|length}} 位成员</p></div>
+  {% if admin %}<details class="action-panel"><summary class="button primary">建立账号</summary>
+    <form class="form-grid panel" action="{{url_for('create_person')}}" method="post">{{token()}}
+      <label>姓名<input name="name" maxlength="65" required></label><label>姓名首字母<input name="initials" maxlength="20"></label>
+      <label>后台账号<input name="username" maxlength="40" autocomplete="off" required></label>
+      <label>随机临时密码<input type="password" name="password" minlength="12" autocomplete="new-password" required></label>
+      <label>角色<select name="role">{% for role in ['member','lead','liaison','hr'] if role!='hr' or g.user.role=='editor' %}<option value="{{role}}">{{roles[role]}}</option>{% endfor %}</select></label>
+      <label>小组<select name="group"><option value="">Officer</option>{% for item in groups %}<option value="{{item.id}}">Group {{item.id}} · {{item.chapters}}</option>{% endfor %}</select></label>
+      <div class="wide"><button class="primary">建立成员账号</button></div>
+    </form>
+  </details>{% endif %}
+</div>
+<section class="people-grid" aria-label="成员名片">
+{% for entry in people %}
+  {% set name=public_identity(entry.name,entry.id) %}
+  <a class="person-card" href="{{url_for('person',person_id=entry.id)}}">
+    <div class="member-top">
+      <img class="avatar" src="{{member_avatar_url(entry.id, entry.avatar)}}" width="52" height="52" alt="" loading="lazy">
+      <div><h2>{{name}}</h2><span class="meta">{{roles[entry.role]}} · {% if entry.group_id %}Group {{entry.group_id}}{% else %}Officer{% endif %}</span></div>
+    </div>
+    {% if entry.bio and (g.user or roster_public) %}<p class="member-reflection">{{entry.bio|truncate(96,true,'…',0)}}</p>{% endif %}
+    {{ member_stats(entry) }}
+    {% set own_tasks=assignments.get(entry.id,[]) %}
+    <div class="person-tasks">
+      {% if own_tasks %}<ul>{% for task in own_tasks[:2] %}<li>{{task.title}}</li>{% endfor %}</ul>{% if own_tasks|length > 2 %}<span class="meta">另有 {{own_tasks|length - 2}} 项任务</span>{% endif %}
+      {% else %}<span class="meta">暂无分配任务</span>{% endif %}
+    </div>
+  </a>
+{% else %}<p class="empty muted">暂时没有成员名片。</p>{% endfor %}
+</section>
+<p class="quiet"><a href="{{url_for('activity')}}">查看项目变更记录</a></p>
+{% endblock %}

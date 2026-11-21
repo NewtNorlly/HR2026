@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}公共部门人力资源管理年刊{% endblock %}
+{% block body %}
+<section class="hero">
+  <div class="hero-copy">
+    <div class="eyebrow"><span class="dot"></span> 公共部门人力资源管理课程</div>
+    <h1>从课堂到<br>公共部门实践<span>。</span></h1>
+    <p>跟着一个人、一件事，读懂规划、岗位、招聘、培训、绩效、薪酬和员工关系。</p>
+    <a class="button primary" href="{{ url_for('login') }}">进入项目工作台 <span aria-hidden="true">↗</span></a>
+  </div>
+  <div class="cover" aria-label="HR2026 年刊封面">
+    <div class="cover-top">HR2026 <span>ANNUAL JOURNAL</span></div>
+    <div class="cover-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="cover-bottom">公共部门<br>人力资源管理年刊</div>
+  </div>
+</section>
+{% if published %}
+<section class="panel release">
+  <h2>公开资料</h2>
+  {% for file in published %}<div class="file-line"><a href="{{url_for('preview',file_id=file.id)}}">{{file.name}}</a><a href="{{url_for('download',file_id=file.id)}}">下载原件</a></div>{% endfor %}
+</section>
+{% endif %}
+<section class="landing-schedule">
+  <div class="section-header"><h2>六周办刊安排</h2><span>W13–W18</span></div>
+  <div class="schedule-grid">
+    {% for title, deliverable in milestones %}<article class="milestone"><span class="week-number">W{{loop.index0+13}}</span><h3>{{title}}</h3><p>{{deliverable}}</p></article>{% endfor %}
+  </div>
+</section>
+{% endblock %}

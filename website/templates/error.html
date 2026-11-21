@@ -1,0 +1,3 @@
+{% extends "base.html" %}
+{% block title %}{{code}}{% endblock %}
+{% block body %}<section class="auth-panel panel"><div class="eyebrow">{{code}}</div><h1>暂时无法继续</h1><p>{{message}}</p><a class="button outline" href="{{url_for('home')}}">回到首页</a></section>{% endblock %}

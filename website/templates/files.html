@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% from "forms.html" import token with context %}
+{% macro icon(kind) %}
+<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{% if kind == "folder" %}<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+{% elif kind == "file" %}<path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h4M9 13h6M9 17h6"/>
+{% elif kind == "sidebar" %}<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m-4-11h2m-2 4h2"/>
+{% elif kind == "download" %}<path d="M12 4v11m-4-4 4 4 4-4M5 16v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"/>
+{% else %}<path d="m9 6 6 6-6 6"/>{% endif %}
+</svg>
+{% endmacro %}
+{% macro upload_form(previous=None) %}
+<form class="stack repo-upload-form" action="{{url_for('upload')}}" method="post" enctype="multipart/form-data">
+  {{token()}}<input type="hidden" name="group" value="{{group}}">
+  <input type="hidden" name="folder" value="{{folder.id if folder else 0}}">
+  {% if previous %}<input type="hidden" name="previous" value="{{previous.id}}">{% endif %}
+  <label>选择文件<input type="file" name="document" required></label>
+  <p>支持 Markdown、Word、Excel、PowerPoint、PDF、常用图片和代码。单次上传上限约 64 MB。</p>
+  <p>上传后，访客也可以预览和下载。请先整理需要脱敏的内容。</p>
+  <button class="primary">上传{{'新版本' if previous else ''}}</button>
+</form>
+{% endmacro %}
+{% macro directory_items(root_group, branches, entries, parent_id=none, parent_name=none) %}
+<ul>
+  <li><a class="repo-folder-link" href="{{url_for('files',group=root_group,folder=parent_id)}}" aria-label="查看文件夹 {{parent_name or ('Officer' if root_group == 0 else 'Group ' ~ root_group)}}" {% if root_group == group and parent_id == (folder.id if folder else none) and not selected %}aria-current="page"{% endif %}>查看文件夹</a></li>
+  {% if root_group == 0 and not parent_id and has_intro %}
+  <li><a href="{{url_for('intro')}}" {% if intro %}aria-current="page"{% endif %}>{{icon('file')}}<span>{{intro_name}}</span></a></li>
+  {% endif %}
+  {% for branch in branches %}
+  <li><details class="repo-folder repo-subfolder" {% if branch.id in folder_path|map(attribute='id')|list %}open{% endif %}>
+    <summary>{{icon('chevron')}}{{icon('folder')}}<span>{{branch.name}}</span></summary>
+    {{directory_items(root_group, branch.children, files_by_folder.get(branch.id, []), branch.id, branch.name)}}
+  </details></li>
+  {% endfor %}
+  {% for item in entries %}
+  <li><a href="{{url_for('files',group=root_group,file=item.id)}}" {% if selected and selected.id == item.id %}aria-current="page"{% endif %}>{{icon('file')}}<span>{{item.name}}</span></a></li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+{% block title %}{{selected.name if selected else 'Files'}}{% endblock %}
+{% block page_styles %}
+<link rel="stylesheet" href="{{url_for('static', filename='files.css', v='8')}}">
+<script src="{{url_for('static',filename='files.js')}}" defer></script>
+{% endblock %}
+{% block body %}
+<div class="repo-shell">
+  <details class="repo-navigation" open>
+    <summary>{{icon('sidebar')}} <span>文件目录</span></summary>
+    <nav aria-label="文件目录">
+      {% for folder in range(7) %}
+      <details class="repo-folder" {% if folder == group %}open{% endif %}>
+        <summary>{{icon('chevron')}}{{icon('folder')}} <span lang="en">{{'Officer' if folder == 0 else 'Group ' ~ folder}}</span></summary>
+        {{directory_items(folder, folder_tree[folder], tree[folder])}}
+      </details>
+      {% endfor %}
+    </nav>
+  </details>
+  <section class="repo-main" aria-label="项目文件">
+    <div class="repo-toolbar">
+      <nav class="repo-path" aria-label="文件路径">
+        <a href="{{url_for('files')}}" lang="en">Files</a><span aria-hidden="true">/</span>
+        <a href="{{url_for('files',group=group)}}" lang="en" {% if not folder and not selected %}aria-current="page"{% endif %}>{{'Officer' if group == 0 else 'Group ' ~ group}}</a>
+        {% for ancestor in folder_path %}
+        <span aria-hidden="true">/</span><a href="{{url_for('files',group=group,folder=ancestor.id)}}" {% if loop.last and not selected %}aria-current="page"{% endif %}>{{ancestor.name}}</a>
+        {% endfor %}
+        {% if selected %}<span aria-hidden="true">/</span><strong aria-current="page">{{selected.name}}</strong>{% endif %}
+      </nav>
+      {% if writable or (can_organize and not selected) %}
+      <div class="repo-toolbar-actions">
+      {% if writable %}
+      <details class="repo-upload" name="repo-toolbar-action">
+        <summary class="button outline">＋ 上传文件</summary>
+        {{upload_form()}}
+      </details>
+      {% endif %}
+      {% if can_organize and not selected %}
+      {% if folder_path|length < max_folder_depth %}
+      <details class="repo-upload" name="repo-toolbar-action">
+        <summary class="button outline">新建子文件夹</summary>
+        <form class="stack repo-upload-form" action="{{url_for('folder_create')}}" method="post">
+          {{token()}}<input type="hidden" name="group" value="{{group}}"><input type="hidden" name="parent" value="{{folder.id if folder else 0}}">
+          <label>子文件夹名称<input name="name" type="text" maxlength="80" required></label>
+          <button type="submit" class="primary">新建</button>
+        </form>
+      </details>
+      {% endif %}
+      {% if folder %}
+      <details class="repo-upload" name="repo-toolbar-action">
+        <summary class="button outline">重命名文件夹</summary>
+        <form class="stack repo-upload-form" action="{{url_for('folder_rename',folder_id=folder.id)}}" method="post">
+          {{token()}}<label>文件夹名称<input name="name" type="text" value="{{folder.name}}" maxlength="80" required></label>
+          <button type="submit" class="primary">保存名称</button>
+        </form>
+      </details>
+      {% endif %}
+      {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% if selected %}
+    {% set current_doc = url_for(request.endpoint) if intro else preview_url %}
+    <div class="repo-document{% if intro %} is-intro{% endif %}">
+      <div class="repo-document-bar">
+        {% if markdown_file %}
+        <nav class="repo-views" aria-label="阅读方式">
+          <a href="{{current_doc}}" {% if mode == 'render' %}aria-current="page"{% endif %}>渲染</a>
+          <a href="{{current_doc}}{{'&' if '?' in current_doc else '?'}}view=source" {% if mode == 'source' %}aria-current="page"{% endif %}>源码</a>
+        </nav>
+        {% else %}<span>{{selected.ext[1:]|upper}}</span>{% endif %}
+        <a class="repo-download" href="{{download_url}}" aria-label="下载 {{selected.name}}">{{icon('download')}} 下载</a>
+      </div>
+      <div class="repo-document-body {% if headings %}repo-has-toc{% endif %}">
+        <div class="repo-preview">{% include "_file_content.html" %}</div>
+        {% if headings %}
+        <aside class="repo-toc">
+          <details open>
+            <summary>本页目录</summary>
+            <nav aria-label="本页目录">
+              <ul>
+              {% for heading in headings %}
+                <li class="repo-toc-{{heading.level}}"><a href="#{{heading.id}}">{{heading.text}}</a></li>
+              {% endfor %}
+              </ul>
+            </nav>
+          </details>
+        </aside>
+        {% endif %}
+      </div>
+    </div>
+    {% if not intro %}
+    <div class="repo-version-bar">
+      <span>当前版本 {{selected.id}} · {{selected.uploaded_at}} UTC</span>
+    </div>
+    {% if can_update(selected) %}<details class="repo-manage"><summary>上传新版本</summary>{{upload_form(selected)}}</details>{% endif %}
+    {% if can_organize and folder_destinations|length > 1 %}
+    <details class="repo-manage"><summary>移动文件</summary>
+      <form class="stack repo-upload-form repo-move-form" action="{{url_for('move_file',file_id=selected.id)}}" method="post">
+        {{token()}}
+        <label>目标文件夹<select name="folder" required>
+          <option value="" selected disabled>选择目标文件夹</option>
+          {% for destination in folder_destinations if destination.id != (folder.id if folder else 0) %}
+          <option value="{{destination.id}}">{{destination.label}}</option>
+          {% endfor %}
+        </select></label>
+        <p>移动文件不会改变当前文件地址。</p>
+        <button type="submit" class="primary">确认移动</button>
+      </form>
+    </details>
+    {% endif %}
+    {% if can_manage(selected) %}<details class="repo-manage"><summary>管理版本</summary><form class="actions" action="{{url_for('manage_file',file_id=selected.id)}}" method="post">
+      {{token()}}<button class="danger" name="action" value="withdraw">撤下此版本</button></form></details>{% endif %}
+    {% endif %}
+    {% else %}
+    <div class="repo-document repo-list">
+      {% set show_intro_item = group == 0 and not folder and has_intro %}
+      <div class="repo-document-bar"><strong>{{folder.name if folder else (groups[group-1].chapters if group else '工程级公用文件夹')}}</strong><span>{{current_folders|length}} 个子文件夹 · {{current_files|length + (1 if show_intro_item else 0)}} 份文件</span></div>
+      {% for child in current_folders %}
+      <a class="repo-row repo-folder-row" href="{{url_for('files',group=group,folder=child.id)}}">{{icon('folder')}}<strong>{{child.name}}</strong><span>子文件夹</span></a>
+      {% endfor %}
+      {% if show_intro_item %}<a class="repo-row" href="{{url_for('intro')}}">{{icon('file')}}<strong>{{intro_name}}</strong><span>项目说明</span></a>{% endif %}
+      {% for item in current_files %}
+      <a class="repo-row" href="{{url_for('files',group=group,file=item.id)}}">{{icon('file')}}<strong>{{item.name}}</strong><span>版本 {{item.id}} · {{(item.size/1024)|round|int}} KB</span></a>
+      {% endfor %}
+      {% if not current_folders and not current_files and not show_intro_item %}<p class="repo-empty">这个文件夹还是空的。</p>{% endif %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "forms.html" import token, profile_form with context %}
+{% from "_member_stats.html" import member_stats %}
+{% set name=public_identity(person.name,person.id) %}
+{% block title %}{{name}} · People · HR2026{% endblock %}
+{% block body %}
+<p class="back-link"><a href="{{url_for('people')}}">← 返回成员名片</a></p>
+<section class="person-profile">
+  <header class="member-top">
+    <img class="avatar big-avatar" src="{{member_avatar_url(person.id, person.avatar)}}" width="72" height="72" alt="">
+    <div><h1>{{name}}</h1><p>{{roles[person.role]}} · {% if person.group_id %}Group {{person.group_id}}{% else %}Officer{% endif %}</p></div>
+  </header>
+  {{ member_stats(person) }}
+  {% if person.bio and (g.user or roster_public) %}<section class="profile-bio"><h2>个人感想</h2><p class="preserve">{{person.bio}}</p></section>{% endif %}
+  {% if g.user and person.id == g.user.id %}
+  <details id="settings" class="profile-settings"{% if request.args.get('edit') == '1' %} open{% endif %}><summary>个人设置</summary>{{profile_form(person)}}</details>
+  {% endif %}
+  <div class="split">
+    <section>
+      <h2>负责的任务</h2>
+      {% for t in tasks %}<div class="file-line"><a href="{{url_for('task',week=t.week)}}#task-{{t.id}}">{{t.title}}</a><span class="tag">{{states[t.status]}}</span></div>{% else %}<p class="muted">暂无分配任务。</p>{% endfor %}
+    </section>
+    <section>
+      <h2>已验收交付</h2>
+      {% for c in contributions %}<article class="contribution">
+        <div class="card-top"><strong><a href="{{url_for('task',week=c.week)}}#task-{{c.task_id}}">{{c.detail}}</a></strong></div>
+        {% if c.latest_file_id %}
+          <p>{{c.file_name}} · <a href="{{url_for('files',group=c.latest_file_group_id or 0,file=c.latest_file_id)}}" aria-label="查看 {{c.file_name}} 的最新版">查看最新版</a>{% if c.file_id != c.latest_file_id %} <span class="meta">· 验收版本 {{c.file_id}}</span>{% endif %}</p>
+        {% endif %}
+      </article>{% else %}<p class="muted">暂无已验收的交付。</p>{% endfor %}
+    </section>
+  </div>
+  {% if admin and person.id != g.user.id and person.role!='editor' and (person.role!='hr' or g.user.role=='editor') %}
+  <details class="profile-settings"><summary>重置成员密码</summary>
+    <form action="{{url_for('reset_person',person_id=person.id)}}" method="post" class="stack">{{token()}}<label>新的临时密码<input type="password" name="password" minlength="12" required autocomplete="new-password"></label><button>重置密码</button></form>
+  </details>
+  {% endif %}
+</section>
+{% endblock %}
