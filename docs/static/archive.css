@@ -1,6 +1,4 @@
-.archive-badge{justify-self:end;align-self:center;color:var(--muted);font:14px/1.4 system-ui,sans-serif;white-space:nowrap}
 .navigation a:not([href]),.repo-folder a:not([href]),.issues-nav a:not([href]){color:var(--muted);cursor:default;pointer-events:none}
 .wiki-tags a:not([href]){display:none}
 .archive-downloads{margin-top:16px}.archive-downloads h2{margin-top:0}.archive-downloads a+a{margin-inline-start:1rem}
 .task-week-links a[aria-current="page"]{border-color:var(--selected-edge);background:var(--tint);color:var(--blue)}
-@media(max-width:600px){.archive-badge{display:none}.header-inner{grid-template-columns:1fr auto}}
