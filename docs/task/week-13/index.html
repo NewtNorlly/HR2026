@@ -71,8 +71,13 @@
 
   <a class="account-entry" href="../../people/" aria-label="我的" title="我的" aria-haspopup="dialog" aria-controls="account-dialog" data-open-dialog="account-dialog"><img class="account-portrait" src="../../static/researcher-avatar.webp" width="36" height="36" alt=""></a></div></header>
 <dialog class="account-dialog" id="account-dialog" aria-labelledby="account-heading">
-  <div class="section-header"><h2 id="account-heading">我的</h2><form method="dialog"><button aria-label="关闭我的面板">×</button></form></div>
-  <div class="account-actions"><a class="button outline" href="../../people/">查看成员名片</a></div>
+  <div class="section-header"><h2 id="account-heading">成员登录</h2><form method="dialog"><button aria-label="关闭账户窗口">×</button></form></div>
+  <form class="stack" method="dialog" autocomplete="off" data-login-preview>
+    <label>姓名<input type="text" maxlength="65" autocomplete="off" required></label>
+    <label>密码<input type="password" maxlength="256" autocomplete="off" required></label>
+    <button class="primary" type="submit">登录</button>
+    <span class="meta" role="status" data-login-status hidden></span>
+  </form>
 </dialog>
 
   <main class="shell" id="content">
@@ -82,7 +87,7 @@
   <header class="task-page-header">
     <h1>任务</h1>
 
-  <nav class="actions task-week-links" aria-label="查看周次"><a href="../" class="tag">全部周次</a><a href="./" class="tag" aria-current="page">W13</a><a href="../week-14/" class="tag">W14</a><a href="../week-15/" class="tag">W15</a><a href="../week-16/" class="tag">W16</a><a href="../week-17/" class="tag">W17</a><a href="../week-18/" class="tag">W18</a></nav></header>
+  <form method="get" action="../" class="task-week-filter"><label>查看周次<select name="week"><option value="">全部周次</option><option value="13" selected>W13</option><option value="14">W14</option><option value="15">W15</option><option value="16">W16</option><option value="17">W17</option><option value="18">W18</option></select></label><button type="submit">筛选</button></form></header>
 
 
 
@@ -216,5 +221,5 @@
 
 
   </main>
-<script src="../../static/task.js" defer></script><script src="../../static/account.js" defer></script></body>
+<script src="../../static/task.js" defer></script><script src="../../static/account.js?v=2" defer></script></body>
 </html>

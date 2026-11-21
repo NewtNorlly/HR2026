@@ -74,8 +74,13 @@
 
   <a class="account-entry" href="../../people/" aria-label="我的" title="我的" aria-haspopup="dialog" aria-controls="account-dialog" data-open-dialog="account-dialog"><img class="account-portrait" src="../../static/researcher-avatar.webp" width="36" height="36" alt=""></a></div></header>
 <dialog class="account-dialog" id="account-dialog" aria-labelledby="account-heading">
-  <div class="section-header"><h2 id="account-heading">我的</h2><form method="dialog"><button aria-label="关闭我的面板">×</button></form></div>
-  <div class="account-actions"><a class="button outline" href="../../people/">查看成员名片</a></div>
+  <div class="section-header"><h2 id="account-heading">成员登录</h2><form method="dialog"><button aria-label="关闭账户窗口">×</button></form></div>
+  <form class="stack" method="dialog" autocomplete="off" data-login-preview>
+    <label>姓名<input type="text" maxlength="65" autocomplete="off" required></label>
+    <label>密码<input type="password" maxlength="256" autocomplete="off" required></label>
+    <button class="primary" type="submit">登录</button>
+    <span class="meta" role="status" data-login-status hidden></span>
+  </form>
 </dialog>
 
   <main class="shell" id="content">
@@ -264,7 +269,7 @@
 
         <nav class="repo-views" aria-label="阅读方式">
           <a href="./" aria-current="page">渲染</a>
-          <a href="../../resources/HR2026%E5%B9%B4%E5%88%8A%E9%A1%B9%E7%9B%AE%E8%A7%84%E5%88%92.md">源码</a>
+          <a href="?view=source">源码</a>
         </nav>
 
         <a class="repo-download" href="../../resources/HR2026%E5%B9%B4%E5%88%8A%E9%A1%B9%E7%9B%AE%E8%A7%84%E5%88%92.md" aria-label="下载 HR2026年刊项目规划.md" download="">
@@ -407,5 +412,5 @@
 </div>
 
   </main>
-<script src="../../static/files.js" defer></script><script src="../../static/legacy-links.js" defer data-legacy-links='{"view=source":"../../resources/HR2026年刊项目规划.md"}'></script><script src="../../static/account.js" defer></script></body>
+<script src="../../static/files.js" defer></script><script src="../../static/account.js?v=2" defer></script><script src="../../static/markdown-source.js" defer></script></body>
 </html>

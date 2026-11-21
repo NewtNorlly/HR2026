@@ -71,8 +71,13 @@
 
   <a class="account-entry" href="../" aria-label="我的" title="我的" aria-haspopup="dialog" aria-controls="account-dialog" data-open-dialog="account-dialog"><img class="account-portrait" src="../../static/researcher-avatar.webp" width="36" height="36" alt=""></a></div></header>
 <dialog class="account-dialog" id="account-dialog" aria-labelledby="account-heading">
-  <div class="section-header"><h2 id="account-heading">我的</h2><form method="dialog"><button aria-label="关闭我的面板">×</button></form></div>
-  <div class="account-actions"><a class="button outline" href="../">查看成员名片</a></div>
+  <div class="section-header"><h2 id="account-heading">成员登录</h2><form method="dialog"><button aria-label="关闭账户窗口">×</button></form></div>
+  <form class="stack" method="dialog" autocomplete="off" data-login-preview>
+    <label>姓名<input type="text" maxlength="65" autocomplete="off" required></label>
+    <label>密码<input type="password" maxlength="256" autocomplete="off" required></label>
+    <button class="primary" type="submit">登录</button>
+    <span class="meta" role="status" data-login-status hidden></span>
+  </form>
 </dialog>
 
   <main class="shell" id="content">
@@ -106,5 +111,5 @@
 </section>
 
   </main>
-<script src="../../static/account.js" defer></script></body>
+<script src="../../static/account.js?v=2" defer></script></body>
 </html>
